@@ -3,6 +3,7 @@ package main
 import (
 	"bookem-notification-service/client/userclient"
 	internal "bookem-notification-service/internal"
+	"bookem-notification-service/util"
 	"context"
 	"log"
 	"net/http"
@@ -11,9 +12,11 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 )
 
 var (
@@ -39,7 +42,7 @@ func connectToMongo() *mongo.Database {
 		log.Fatalf("MongoDB not reachable: %v", err)
 	}
 
-	log.Printf("✅ Connected to MongoDB at %s", mongoURI)
+	log.Printf("Connected to MongoDB at %s", mongoURI)
 	mongoClient = client
 	mongoDB = client.Database(dbName)
 	return mongoDB
@@ -57,6 +60,14 @@ func healthHandler(ctx *gin.Context) {
 }
 
 func main() {
+	ctx := context.Background()
+	shutdown := util.TEL.Init(
+		ctx,
+		os.Getenv("SERVICE_NAME"),
+		os.Getenv("DEPLOYMENT_ENV"),
+	)
+	defer shutdown(ctx)
+
 	db := connectToMongo()
 	defer func() {
 		if err := mongoClient.Disconnect(context.Background()); err != nil {
@@ -66,6 +77,9 @@ func main() {
 
 	server = gin.Default()
 
+	server.Use(internal.PrometheusMiddleware())
+	server.Use(util.TEL.GetLoggingMiddleware())
+	server.Use(otelgin.Middleware(os.Getenv("SERVICE_NAME")))
 	server.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"http://localhost:5173", "http://localhost"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
@@ -75,6 +89,7 @@ func main() {
 		MaxAge:           12 * time.Hour,
 	}))
 
+	server.GET("/metrics", gin.WrapH(promhttp.Handler()))
 	server.GET("/healthz", healthHandler)
 
 	userClient := userclient.NewUserClient()
@@ -83,13 +98,6 @@ func main() {
 	service := internal.NewService(notificationRepo, userClient)
 	handler := internal.NewHandler(service)
 	route := *internal.NewRoute(handler)
-
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-	}
-
-	log.Printf("Notification service running on port %s", port)
 
 	rg := server.Group("/api")
 	route.Route(rg)
