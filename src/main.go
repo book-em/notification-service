@@ -1,0 +1,98 @@
+package main
+
+import (
+	"bookem-notification-service/client/userclient"
+	internal "bookem-notification-service/internal"
+	"context"
+	"log"
+	"net/http"
+	"os"
+	"time"
+
+	"github.com/gin-contrib/cors"
+	"github.com/gin-gonic/gin"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/mongo/readpref"
+)
+
+var (
+	server      *gin.Engine
+	mongoClient *mongo.Client
+	mongoDB     *mongo.Database
+)
+
+func connectToMongo() *mongo.Database {
+	mongoURI := os.Getenv("MONGO_URI")
+	dbName := os.Getenv("MONGO_DB_NAME")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	clientOptions := options.Client().ApplyURI(mongoURI)
+	client, err := mongo.Connect(ctx, clientOptions)
+	if err != nil {
+		log.Fatalf("Failed to connect to MongoDB: %v", err)
+	}
+
+	if err := client.Ping(ctx, readpref.Primary()); err != nil {
+		log.Fatalf("MongoDB not reachable: %v", err)
+	}
+
+	log.Printf("✅ Connected to MongoDB at %s", mongoURI)
+	mongoClient = client
+	mongoDB = client.Database(dbName)
+	return mongoDB
+}
+
+func healthHandler(ctx *gin.Context) {
+	ctxMongo, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	if err := mongoClient.Ping(ctxMongo, readpref.Primary()); err != nil {
+		ctx.JSON(http.StatusServiceUnavailable, gin.H{"status": "MongoDB not reachable"})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"status": "ok"})
+}
+
+func main() {
+	db := connectToMongo()
+	defer func() {
+		if err := mongoClient.Disconnect(context.Background()); err != nil {
+			log.Printf("Error disconnecting from MongoDB: %v", err)
+		}
+	}()
+
+	server = gin.Default()
+
+	server.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"http://localhost:5173", "http://localhost"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Authorization", "Content-Type"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	}))
+
+	server.GET("/healthz", healthHandler)
+
+	userClient := userclient.NewUserClient()
+
+	notificationRepo := internal.NewRepository(db)
+	service := internal.NewService(notificationRepo, userClient)
+	handler := internal.NewHandler(service)
+	route := *internal.NewRoute(handler)
+
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	log.Printf("Notification service running on port %s", port)
+
+	rg := server.Group("/api")
+	route.Route(rg)
+
+	server.Run()
+}
