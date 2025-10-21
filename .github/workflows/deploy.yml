@@ -36,7 +36,7 @@ jobs:
       - name: Build and push Docker image using Kaniko
         uses: aevea/action-kaniko@master
         with:
-          image: ${{ secrets.RESERVATION_SERVICE_NAME }}
+          image: ${{ secrets.NOTIFICATION_SERVICE_NAME }}
           tag: ${{ env.VERSION }}
           path: ./src/
           build_file: Dockerfile
