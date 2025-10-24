@@ -14,7 +14,9 @@ func NewRoute(handler Handler) *Route { return &Route{handler} }
 
 func (r *Route) Route(rg *gin.RouterGroup) {
 	rg.POST("/notification", r.handler.createNotification)
-	rg.GET("/notifications:limit", r.handler.getUserNotifications)
+	rg.GET("/notifications/:limit", r.handler.getUserNotifications)
+	rg.PUT("/notifications/:id/read", r.handler.markNotificationAsRead)
+
 }
 
 type Handler struct{ service Service }
@@ -82,4 +84,29 @@ func (h *Handler) getUserNotifications(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, notifications)
+}
+
+func (h *Handler) markNotificationAsRead(ctx *gin.Context) {
+	util.TEL.Push(ctx.Request.Context(), "mark-notification-as-read-api")
+	defer util.TEL.Pop()
+
+	jwt, err := util.GetJwt(ctx)
+	if err != nil {
+		util.TEL.Error("failed fetching JWT", err)
+		AbortError(ctx, ErrUnauthenticated)
+		return
+	}
+
+	notificationID := ctx.Param("id")
+	if notificationID == "" {
+		AbortError(ctx, ErrBadRequestCustom("notification ID is required"))
+		return
+	}
+
+	if err := h.service.MarkNotificationAsRead(util.TEL.Ctx(), jwt.ID, notificationID); err != nil {
+		AbortError(ctx, err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "notification marked as read"})
 }
