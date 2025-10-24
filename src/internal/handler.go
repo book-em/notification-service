@@ -3,6 +3,7 @@ package internal
 import (
 	"bookem-notification-service/util"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
@@ -13,6 +14,7 @@ func NewRoute(handler Handler) *Route { return &Route{handler} }
 
 func (r *Route) Route(rg *gin.RouterGroup) {
 	rg.POST("/notification", r.handler.createNotification)
+	rg.GET("/notifications:limit", r.handler.getUserNotifications)
 }
 
 type Handler struct{ service Service }
@@ -51,4 +53,33 @@ func (h *Handler) createNotification(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusCreated, notification)
+}
+
+func (h *Handler) getUserNotifications(ctx *gin.Context) {
+	util.TEL.Push(ctx.Request.Context(), "get-notifications-api")
+	defer util.TEL.Pop()
+
+	jwt, err := util.GetJwt(ctx)
+	if err != nil {
+		util.TEL.Error("failed fetching JWT", err)
+		AbortError(ctx, ErrUnauthenticated)
+		return
+	}
+
+	limitStr := ctx.DefaultQuery("limit", "10")
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil || limit <= 0 {
+		util.TEL.Error("could not parse limit query param into a number", err, "limit", limitStr)
+		AbortError(ctx, err)
+		return
+	}
+
+	notifications, err := h.service.GetUserNotifications(util.TEL.Ctx(), jwt.ID, limit)
+	if err != nil {
+		util.TEL.Error("failed fetching notifications", err)
+		AbortError(ctx, err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, notifications)
 }
