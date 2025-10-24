@@ -22,8 +22,6 @@ func NewService(
 }
 
 func (s *service) Create(ctx context.Context, callerID uint, dto NotificationDTO) (*Notification, error) {
-	notification := &Notification{
-		ID: dto.ID,
-	}
+	notification := &Notification{}
 	return notification, s.repo.Create(ctx, notification)
 }
