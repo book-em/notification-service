@@ -10,7 +10,7 @@ import (
 
 type Service interface {
 	CreateNotification(ctx context.Context, callerID uint, dto NewNotificationDTO) (*Notification, error)
-	GetUserNotifications(ctx context.Context, userID uint, limit int) ([]Notification, error)
+	GetUserNotifications(ctx context.Context, userID uint, limit int, offset int) ([]Notification, error)
 	MarkNotificationAsRead(ctx context.Context, callerID uint, notificationID string) error
 }
 
@@ -83,8 +83,8 @@ func (s *service) CreateNotification(ctx context.Context, callerID uint, dto New
 	return saved, nil
 }
 
-func (s *service) GetUserNotifications(ctx context.Context, userID uint, limit int) ([]Notification, error) {
-	util.TEL.Info("fetching notifications for user", nil, "user_id", userID, "limit", limit)
+func (s *service) GetUserNotifications(ctx context.Context, userID uint, limit int, offset int) ([]Notification, error) {
+	util.TEL.Info("fetching notifications for user", nil, "user_id", userID, "limit", limit, "offset", offset)
 
 	util.TEL.Debug("check if user exists", nil, "id", userID)
 	_, err := s.userClient.FindById(util.TEL.Ctx(), userID)
@@ -95,7 +95,7 @@ func (s *service) GetUserNotifications(ctx context.Context, userID uint, limit i
 
 	util.TEL.Push(ctx, "find-user-notifications-in-db")
 	defer util.TEL.Pop()
-	return s.repo.FindByReceiverID(ctx, userID, limit)
+	return s.repo.FindByReceiverID(ctx, userID, limit, offset)
 }
 
 func (s *service) MarkNotificationAsRead(ctx context.Context, callerID uint, notificationID string) error {

@@ -14,7 +14,7 @@ func NewRoute(handler Handler) *Route { return &Route{handler} }
 
 func (r *Route) Route(rg *gin.RouterGroup) {
 	rg.POST("/notification", r.handler.createNotification)
-	rg.GET("/notifications/:limit", r.handler.getUserNotifications)
+	rg.GET("/notifications", r.handler.getUserNotifications)
 	rg.PUT("/notifications/:id/read", r.handler.markNotificationAsRead)
 
 }
@@ -69,14 +69,23 @@ func (h *Handler) getUserNotifications(ctx *gin.Context) {
 	}
 
 	limitStr := ctx.DefaultQuery("limit", "10")
+	offsetStr := ctx.DefaultQuery("offset", "0")
+
 	limit, err := strconv.Atoi(limitStr)
 	if err != nil || limit <= 0 {
-		util.TEL.Error("could not parse limit query param into a number", err, "limit", limitStr)
-		AbortError(ctx, err)
+		util.TEL.Error("invalid limit query param", err, "limit", limitStr)
+		AbortError(ctx, ErrBadRequestCustom("invalid limit"))
 		return
 	}
 
-	notifications, err := h.service.GetUserNotifications(util.TEL.Ctx(), jwt.ID, limit)
+	offset, err := strconv.Atoi(offsetStr)
+	if err != nil || offset < 0 {
+		util.TEL.Error("invalid offset query param", err, "offset", offsetStr)
+		AbortError(ctx, ErrBadRequestCustom("invalid offset"))
+		return
+	}
+
+	notifications, err := h.service.GetUserNotifications(util.TEL.Ctx(), jwt.ID, limit, offset)
 	if err != nil {
 		util.TEL.Error("failed fetching notifications", err)
 		AbortError(ctx, err)
