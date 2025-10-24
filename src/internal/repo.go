@@ -12,7 +12,7 @@ import (
 
 type Repository interface {
 	Save(ctx context.Context, notification *Notification) (*Notification, error)
-	FindByReceiverID(ctx context.Context, receiverID uint, limit int) ([]Notification, error)
+	FindByReceiverID(ctx context.Context, receiverID uint, limit int, offset int) ([]Notification, error)
 	MarkAsRead(ctx context.Context, id string) error
 	FindByID(ctx context.Context, id string) (*Notification, error)
 }
@@ -37,12 +37,13 @@ func (r *repository) Save(ctx context.Context, n *Notification) (*Notification, 
 	return n, nil
 }
 
-func (r *repository) FindByReceiverID(ctx context.Context, receiverID uint, limit int) ([]Notification, error) {
+func (r *repository) FindByReceiverID(ctx context.Context, receiverID uint, limit int, offset int) ([]Notification, error) {
 	coll := r.db.Collection("notifications")
 
 	opts := options.Find().
 		SetSort(bson.D{{Key: "createdAt", Value: -1}}).
-		SetLimit(int64(limit))
+		SetLimit(int64(limit)).
+		SetSkip(int64(offset))
 
 	cursor, err := coll.Find(ctx, bson.M{"receiverId": receiverID}, opts)
 	if err != nil {
