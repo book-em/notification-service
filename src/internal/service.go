@@ -11,6 +11,7 @@ import (
 type Service interface {
 	CreateNotification(ctx context.Context, callerID uint, dto NewNotificationDTO) (*Notification, error)
 	GetUserNotifications(ctx context.Context, userID uint, limit int) ([]Notification, error)
+	MarkNotificationAsRead(ctx context.Context, callerID uint, notificationID string) error
 }
 
 type service struct {
@@ -95,4 +96,36 @@ func (s *service) GetUserNotifications(ctx context.Context, userID uint, limit i
 	util.TEL.Push(ctx, "find-user-notifications-in-db")
 	defer util.TEL.Pop()
 	return s.repo.FindByReceiverID(ctx, userID, limit)
+}
+
+func (s *service) MarkNotificationAsRead(ctx context.Context, callerID uint, notificationID string) error {
+	util.TEL.Info("mark notification as read", "caller_id", callerID, "notification_id", notificationID)
+
+	util.TEL.Debug("check if user exists", nil, "id", callerID)
+	_, err := s.userClient.FindById(util.TEL.Ctx(), callerID)
+	if err != nil {
+		util.TEL.Error("user does not exist", err, "id", callerID)
+		return ErrUnauthenticated
+	}
+
+	util.TEL.Debug("check if notification exists", nil, "id", notificationID)
+	notification, err := s.repo.FindByID(ctx, notificationID)
+	if err != nil {
+		util.TEL.Error("notification not found", err, "notification_id", notificationID)
+		return ErrBadRequestCustom("notification does not exist")
+	}
+
+	util.TEL.Debug("check if user owns this notification", nil, "id", notificationID)
+	if notification.ReceiverID != callerID {
+		util.TEL.Error("user tried to mark notification not belonging to them", nil, "caller_id", callerID, "receiver_id", notification.ReceiverID)
+		return ErrUnauthorized
+	}
+
+	if err := s.repo.MarkAsRead(ctx, notificationID); err != nil {
+		util.TEL.Error("failed marking notification as read", err, "notification_id", notificationID)
+		return err
+	}
+
+	util.TEL.Info("notification marked as read", "notification_id", notificationID)
+	return nil
 }

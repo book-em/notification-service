@@ -2,6 +2,7 @@ package internal
 
 import (
 	"context"
+	"fmt"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -13,6 +14,7 @@ type Repository interface {
 	Save(ctx context.Context, notification *Notification) (*Notification, error)
 	FindByReceiverID(ctx context.Context, receiverID uint, limit int) ([]Notification, error)
 	MarkAsRead(ctx context.Context, id string) error
+	FindByID(ctx context.Context, id string) (*Notification, error)
 }
 
 type repository struct {
@@ -70,4 +72,23 @@ func (r *repository) MarkAsRead(ctx context.Context, id string) error {
 		bson.M{"$set": bson.M{"isRead": true}},
 	)
 	return err
+}
+
+func (r *repository) FindByID(ctx context.Context, id string) (*Notification, error) {
+	coll := r.db.Collection("notifications")
+
+	objID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return nil, err
+	}
+
+	var notification Notification
+	if err := coll.FindOne(ctx, bson.M{"_id": objID}).Decode(&notification); err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil, fmt.Errorf("notification not found: %w", err)
+		}
+		return nil, err
+	}
+
+	return &notification, nil
 }
