@@ -19,10 +19,10 @@ const (
 
 type Notification struct {
 	ID          primitive.ObjectID `bson:"_id,omitempty" json:"id"`
-	ReceiverID  string             `bson:"receiverId" json:"receiverId"`
+	ReceiverID  uint               `bson:"receiverId" json:"receiverId"`
 	Type        NotificationType   `bson:"type" json:"type"`
-	Subject     string             `bson:"subject" json:"subject"`
-	Object      string             `bson:"object,omitempty" json:"object"`
+	Subject     uint               `bson:"subject" json:"subject"`
+	Object      uint               `bson:"object,omitempty" json:"object"`
 	StarsNumber int                `bson:"starsNumber,omitempty" json:"starsNumber,omitempty"`
 	IsRead      bool               `bson:"isRead" json:"isRead"`
 	CreatedAt   time.Time          `bson:"createdAt" json:"createdAt"`
@@ -30,6 +30,6 @@ type Notification struct {
 
 type NotificationPreferences struct {
 	ID           primitive.ObjectID        `bson:"_id,omitempty" json:"id"`
-	UserID       string                    `bson:"userId" json:"userId"`
+	UserID       uint                      `bson:"userId" json:"userId"`
 	EnabledTypes map[NotificationType]bool `bson:"types" json:"types"`
 }
