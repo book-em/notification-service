@@ -15,7 +15,7 @@ func TestGetUserNotificationsIntegration(t *testing.T) {
 
 	// Create 2 notifications for guest
 	for i := 0; i < 2; i++ {
-		dto := internal.NewNotificationDTO{
+		dto := internal.CreateNotificationDTO{
 			ReceiverID: uint(guestUser.ID),
 			Type:       "reservation_requested",
 			Subject:    0,
