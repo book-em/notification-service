@@ -61,6 +61,24 @@ func (r *MockNotificationRepo) CountUnreadNotifications(ctx context.Context, rec
 	return args.Get(0).(int64), args.Error(1)
 }
 
+func (r *MockNotificationRepo) FindPreferencesByUserID(ctx context.Context, userID uint) (*internal.NotificationPreferences, error) {
+	args := r.Called(ctx, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*internal.NotificationPreferences), args.Error(1)
+}
+
+func (r *MockNotificationRepo) SavePreferences(ctx context.Context, prefs *internal.NotificationPreferences) error {
+	args := r.Called(ctx, prefs)
+	return args.Error(0)
+}
+
+func (r *MockNotificationRepo) UpdatePreferences(ctx context.Context, prefs *internal.NotificationPreferences) error {
+	args := r.Called(ctx, prefs)
+	return args.Error(0)
+}
+
 // ----------------------------------------------- Mock user client
 
 type MockUserClient struct {

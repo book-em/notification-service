@@ -13,6 +13,9 @@ type Service interface {
 	GetUserNotifications(ctx context.Context, userID uint, limit int, offset int) ([]Notification, error)
 	MarkNotificationAsRead(ctx context.Context, callerID uint, notificationID string) error
 	GetUnreadNotificationCount(ctx context.Context, userID uint) (int64, error)
+	GetUserNotificationPreferences(ctx context.Context, userID uint) (*NotificationPreferences, error)
+	UpdateNotificationPreferences(ctx context.Context, userID uint, enabledTypes map[NotificationType]bool) error
+	CreateDefaultPreferences(ctx context.Context, userID uint) (*NotificationPreferences, error)
 }
 
 type service struct {
@@ -150,4 +153,121 @@ func (s *service) GetUnreadNotificationCount(ctx context.Context, userID uint) (
 		return 0, err
 	}
 	return count, nil
+}
+
+// ---------------------- Notification Preferences ----------------------
+
+func (s *service) CreateDefaultPreferences(ctx context.Context, userID uint) (*NotificationPreferences, error) {
+	util.TEL.Info("ensuring default notification preferences", nil, "user_id", userID)
+
+	util.TEL.Debug("check if user exists", nil, "id", userID)
+	user, err := s.userClient.FindById(util.TEL.Ctx(), userID)
+	if err != nil {
+		util.TEL.Error("user does not exist", err, "id", userID)
+		return nil, ErrUnauthenticated
+	}
+
+	util.TEL.Debug("check if preferences already exist", nil, "user_id", userID)
+	existing, err := s.repo.FindPreferencesByUserID(ctx, userID)
+	if err != nil {
+		util.TEL.Error("failed checking existing preferences", err, "user_id", userID)
+		return nil, err
+	}
+	if existing != nil {
+		util.TEL.Debug("preferences already exist, skipping default creation", nil, "user_id", userID)
+		return existing, nil
+	}
+
+	defaultPrefs := make(map[NotificationType]bool)
+	if user.Role == string(util.Host) {
+		defaultPrefs[ReservationRequested] = true
+		defaultPrefs[ReservationCancelled] = true
+		defaultPrefs[HostReviewed] = true
+		defaultPrefs[RoomReviewed] = true
+	} else if user.Role == string(util.Guest) {
+		defaultPrefs[ReservationAccepted] = true
+		defaultPrefs[ReservationDeclined] = true
+	} else {
+		util.TEL.Error("unknown role for default preferences", nil, "role", user.Role)
+		return nil, ErrUnauthorized
+	}
+
+	prefs := &NotificationPreferences{
+		UserID:       userID,
+		EnabledTypes: defaultPrefs,
+	}
+
+	if err := s.repo.SavePreferences(ctx, prefs); err != nil {
+		util.TEL.Error("failed saving default preferences", err, "user_id", userID)
+		return nil, err
+	}
+
+	util.TEL.Info("default notification preferences created", nil, "user_id", userID)
+	return prefs, nil
+}
+
+func (s *service) GetUserNotificationPreferences(ctx context.Context, userID uint) (*NotificationPreferences, error) {
+	util.TEL.Info("fetching notification preferences for user", nil, "user_id", userID)
+
+	util.TEL.Debug("check if user exists", nil, "id", userID)
+	user, err := s.userClient.FindById(util.TEL.Ctx(), userID)
+	if err != nil {
+		util.TEL.Error("user does not exist", err, "id", userID)
+		return nil, ErrUnauthenticated
+	}
+
+	util.TEL.Debug("check if preferences exist", nil, "user_id", user.Id)
+	prefs, err := s.repo.FindPreferencesByUserID(ctx, userID)
+	if err != nil {
+		util.TEL.Error("failed fetching preferences", err, "user_id", userID)
+		return nil, err
+	}
+
+	if prefs == nil {
+		util.TEL.Debug("no preferences found, creating default preferences", nil, "user_id", userID)
+		prefs, err = s.CreateDefaultPreferences(ctx, userID)
+		if err != nil {
+			util.TEL.Error("failed creating default preferences", err, "user_id", userID)
+			return nil, err
+		}
+	}
+
+	return prefs, nil
+}
+
+func (s *service) UpdateNotificationPreferences(ctx context.Context, userID uint, enabledTypes map[NotificationType]bool) error {
+	util.TEL.Info("updating notification preferences", nil, "user_id", userID)
+
+	util.TEL.Debug("check if user exists", nil, "id", userID)
+	user, err := s.userClient.FindById(util.TEL.Ctx(), userID)
+	if err != nil {
+		util.TEL.Error("user does not exist", err, "id", userID)
+		return ErrUnauthenticated
+	}
+
+	prefs, err := s.repo.FindPreferencesByUserID(ctx, user.Id)
+	if err != nil {
+		util.TEL.Error("failed fetching preferences", err, "user_id", userID)
+		return err
+	}
+
+	if prefs == nil {
+		prefs = &NotificationPreferences{
+			UserID:       userID,
+			EnabledTypes: enabledTypes,
+		}
+		if err := s.repo.SavePreferences(ctx, prefs); err != nil {
+			util.TEL.Error("failed saving new preferences", err, "user_id", userID)
+			return err
+		}
+	} else {
+		prefs.EnabledTypes = enabledTypes
+		if err := s.repo.UpdatePreferences(ctx, prefs); err != nil {
+			util.TEL.Error("failed updating preferences", err, "user_id", userID)
+			return err
+		}
+	}
+
+	util.TEL.Info("notification preferences updated", nil, "user_id", userID)
+	return nil
 }

@@ -17,6 +17,8 @@ func (r *Route) Route(rg *gin.RouterGroup) {
 	rg.GET("/notifications", r.handler.getUserNotifications)
 	rg.PUT("/notifications/:id/read", r.handler.markNotificationAsRead)
 	rg.GET("/notifications/unread-count", r.handler.getUnreadNotificationCount)
+	rg.GET("/notification/preferences", r.handler.getUserNotificationPreferences)
+	rg.PUT("/notification/preferences", r.handler.updateNotificationPreferences)
 
 }
 
@@ -147,4 +149,56 @@ func (h *Handler) getUnreadNotificationCount(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{"unreadCount": count})
+}
+
+// ---------------------- Notification Preferences ----------------------
+
+func (h *Handler) getUserNotificationPreferences(ctx *gin.Context) {
+	util.TEL.Push(ctx.Request.Context(), "get-notification-preferences")
+	defer util.TEL.Pop()
+
+	jwt, err := util.GetJwt(ctx)
+	if err != nil {
+		util.TEL.Error("failed fetching JWT", err)
+		AbortError(ctx, ErrUnauthenticated)
+		return
+	}
+
+	prefs, err := h.service.GetUserNotificationPreferences(util.TEL.Ctx(), jwt.ID)
+	if err != nil {
+		util.TEL.Error("failed fetching user notification preferences", err)
+		AbortError(ctx, err)
+		return
+	}
+
+	//todo change to DTO
+	ctx.JSON(http.StatusOK, prefs)
+}
+
+func (h *Handler) updateNotificationPreferences(ctx *gin.Context) {
+	util.TEL.Push(ctx.Request.Context(), "update-notification-preferences")
+	defer util.TEL.Pop()
+
+	jwt, err := util.GetJwt(ctx)
+	if err != nil {
+		util.TEL.Error("failed fetching JWT", err)
+		AbortError(ctx, ErrUnauthenticated)
+		return
+	}
+
+	var dto NotificationPreferencesDTO
+
+	if err := ctx.ShouldBindJSON(&dto); err != nil {
+		util.TEL.Error("failed binding JSON", err)
+		AbortError(ctx, ErrBadRequestCustom("invalid request body"))
+		return
+	}
+
+	if err := h.service.UpdateNotificationPreferences(util.TEL.Ctx(), jwt.ID, dto.EnabledTypes); err != nil {
+		util.TEL.Error("failed updating notification preferences", err)
+		AbortError(ctx, err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "notification preferences updated"})
 }
