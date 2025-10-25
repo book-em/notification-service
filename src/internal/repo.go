@@ -15,6 +15,7 @@ type Repository interface {
 	FindByReceiverID(ctx context.Context, receiverID uint, limit int, offset int) ([]Notification, error)
 	MarkAsRead(ctx context.Context, id string) error
 	FindByID(ctx context.Context, id string) (*Notification, error)
+	CountUnreadNotifications(ctx context.Context, receiverID uint) (int64, error)
 }
 
 type repository struct {
@@ -92,4 +93,20 @@ func (r *repository) FindByID(ctx context.Context, id string) (*Notification, er
 	}
 
 	return &notification, nil
+}
+
+func (r *repository) CountUnreadNotifications(ctx context.Context, receiverID uint) (int64, error) {
+	coll := r.db.Collection("notifications")
+
+	filter := bson.M{
+		"receiverId": receiverID,
+		"isRead":     false,
+	}
+
+	count, err := coll.CountDocuments(ctx, filter)
+	if err != nil {
+		return 0, err
+	}
+
+	return count, nil
 }
