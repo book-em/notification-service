@@ -41,7 +41,7 @@ func (h *Handler) createNotification(ctx *gin.Context) {
 		return
 	}
 
-	var dto NewNotificationDTO
+	var dto CreateNotificationDTO
 	if err := ctx.ShouldBindJSON(&dto); err != nil {
 		util.TEL.Error("failed binding JSON", err)
 		AbortError(ctx, ErrBadRequestCustom("invalid request body"))
@@ -55,7 +55,7 @@ func (h *Handler) createNotification(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusCreated, notification)
+	ctx.JSON(http.StatusCreated, NewNotificationDTO(notification))
 }
 
 func (h *Handler) getUserNotifications(ctx *gin.Context) {
@@ -93,7 +93,14 @@ func (h *Handler) getUserNotifications(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, notifications)
+	util.TEL.Debug("building response")
+
+	result := make([]NotificationDTO, 0)
+	for _, notif := range notifications {
+		result = append(result, NewNotificationDTO(&notif))
+	}
+
+	ctx.JSON(http.StatusOK, result)
 }
 
 func (h *Handler) markNotificationAsRead(ctx *gin.Context) {

@@ -15,7 +15,7 @@ func Test_CreateNotification_Success(t *testing.T) {
 	svc, repo, userClient := CreateTestNotificationService()
 
 	callerID := uint(1)
-	dto := internal.NewNotificationDTO{
+	dto := internal.CreateNotificationDTO{
 		ReceiverID:  2,
 		Type:        internal.ReservationRequested,
 		Subject:     100,
@@ -50,7 +50,7 @@ func Test_CreateNotification_UserNotFound(t *testing.T) {
 	svc, _, userClient := CreateTestNotificationService()
 
 	callerID := uint(1)
-	dto := internal.NewNotificationDTO{ReceiverID: 2, Type: internal.ReservationRequested}
+	dto := internal.CreateNotificationDTO{ReceiverID: 2, Type: internal.ReservationRequested}
 
 	userClient.On("FindById", context.Background(), callerID).Return(nil, errors.New("not found"))
 
@@ -64,7 +64,7 @@ func Test_CreateNotification_InvalidRole(t *testing.T) {
 	svc, _, userClient := CreateTestNotificationService()
 
 	callerID := uint(1)
-	dto := internal.NewNotificationDTO{ReceiverID: 2, Type: internal.ReservationRequested}
+	dto := internal.CreateNotificationDTO{ReceiverID: 2, Type: internal.ReservationRequested}
 
 	invalidUser := DefaultUser_Guest
 	invalidUser.Role = "admin"
@@ -80,7 +80,7 @@ func Test_CreateNotification_MissingReceiverID(t *testing.T) {
 	svc, _, userClient := CreateTestNotificationService()
 
 	callerID := uint(1)
-	dto := internal.NewNotificationDTO{ReceiverID: 0, Type: internal.ReservationRequested}
+	dto := internal.CreateNotificationDTO{ReceiverID: 0, Type: internal.ReservationRequested}
 
 	userClient.On("FindById", context.Background(), callerID).Return(&DefaultUser_Guest, nil)
 
@@ -95,7 +95,7 @@ func Test_CreateNotification_ReceiverNotFound(t *testing.T) {
 	svc, _, userClient := CreateTestNotificationService()
 
 	callerID := uint(1)
-	dto := internal.NewNotificationDTO{ReceiverID: 2, Type: internal.ReservationRequested}
+	dto := internal.CreateNotificationDTO{ReceiverID: 2, Type: internal.ReservationRequested}
 
 	userClient.On("FindById", context.Background(), callerID).Return(&DefaultUser_Guest, nil)
 	userClient.On("FindById", context.Background(), dto.ReceiverID).Return(nil, errors.New("not found"))
@@ -111,7 +111,7 @@ func Test_CreateNotification_MissingType(t *testing.T) {
 	svc, _, userClient := CreateTestNotificationService()
 
 	callerID := uint(1)
-	dto := internal.NewNotificationDTO{ReceiverID: 2, Type: ""}
+	dto := internal.CreateNotificationDTO{ReceiverID: 2, Type: ""}
 
 	userClient.On("FindById", context.Background(), callerID).Return(&DefaultUser_Guest, nil)
 	userClient.On("FindById", context.Background(), dto.ReceiverID).Return(&DefaultUser_Host, nil)
@@ -127,7 +127,7 @@ func Test_CreateNotification_RepoError(t *testing.T) {
 	svc, repo, userClient := CreateTestNotificationService()
 
 	callerID := uint(1)
-	dto := internal.NewNotificationDTO{ReceiverID: 2, Type: internal.ReservationRequested}
+	dto := internal.CreateNotificationDTO{ReceiverID: 2, Type: internal.ReservationRequested}
 
 	userClient.On("FindById", context.Background(), callerID).Return(&DefaultUser_Guest, nil)
 	userClient.On("FindById", context.Background(), dto.ReceiverID).Return(&DefaultUser_Host, nil)

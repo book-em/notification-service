@@ -15,7 +15,7 @@ func TestGetUnreadNotificationCountIntegration(t *testing.T) {
 
 	// Create 3 notifications
 	for i := 0; i < 3; i++ {
-		dto := internal.NewNotificationDTO{
+		dto := internal.CreateNotificationDTO{
 			ReceiverID: uint(guestUser.ID),
 			Type:       "reservation_requested",
 			Subject:    0,

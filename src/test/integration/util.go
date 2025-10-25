@@ -85,7 +85,7 @@ func LoginUserJWT(usernameOrEmail, password string) string {
 
 // ------------------------ Notifications ------------------------
 
-func CreateNotification(jwt string, dto internal.NewNotificationDTO) (*http.Response, error) {
+func CreateNotification(jwt string, dto internal.CreateNotificationDTO) (*http.Response, error) {
 	jsonBytes, _ := json.Marshal(dto)
 	req, _ := http.NewRequest(http.MethodPost, URL_notification+"notification", bytes.NewBuffer(jsonBytes))
 	req.Header.Add("Authorization", "Bearer "+jwt)
