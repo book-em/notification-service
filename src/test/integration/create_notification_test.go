@@ -14,7 +14,7 @@ func TestCreateNotificationIntegration(t *testing.T) {
 	guestUser := SetupGuestUser(t)
 
 	// Host creates a notification for guest
-	dto := internal.NewNotificationDTO{
+	dto := internal.CreateNotificationDTO{
 		ReceiverID: uint(guestUser.ID),
 		Type:       "reservation_requested",
 		Subject:    0,

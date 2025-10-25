@@ -9,7 +9,7 @@ import (
 )
 
 type Service interface {
-	CreateNotification(ctx context.Context, callerID uint, dto NewNotificationDTO) (*Notification, error)
+	CreateNotification(ctx context.Context, callerID uint, dto CreateNotificationDTO) (*Notification, error)
 	GetUserNotifications(ctx context.Context, userID uint, limit int, offset int) ([]Notification, error)
 	MarkNotificationAsRead(ctx context.Context, callerID uint, notificationID string) error
 	GetUnreadNotificationCount(ctx context.Context, userID uint) (int64, error)
@@ -27,7 +27,7 @@ func NewService(
 }
 
 // CreateNotification - stores a new notification in MongoDB
-func (s *service) CreateNotification(ctx context.Context, callerID uint, dto NewNotificationDTO) (*Notification, error) {
+func (s *service) CreateNotification(ctx context.Context, callerID uint, dto CreateNotificationDTO) (*Notification, error) {
 	util.TEL.Info("user initiates creating a notification", nil, "caller_id", callerID)
 
 	util.TEL.Debug("check if user exists", nil, "id", callerID)
