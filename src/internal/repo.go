@@ -16,6 +16,9 @@ type Repository interface {
 	MarkAsRead(ctx context.Context, id string) error
 	FindByID(ctx context.Context, id string) (*Notification, error)
 	CountUnreadNotifications(ctx context.Context, receiverID uint) (int64, error)
+	SavePreferences(ctx context.Context, prefs *NotificationPreferences) error
+	UpdatePreferences(ctx context.Context, prefs *NotificationPreferences) error
+	FindPreferencesByUserID(ctx context.Context, userID uint) (*NotificationPreferences, error)
 }
 
 type repository struct {
@@ -109,4 +112,78 @@ func (r *repository) CountUnreadNotifications(ctx context.Context, receiverID ui
 	}
 
 	return count, nil
+}
+
+// ---------------------- Notification Preferences ----------------------
+
+func (r *repository) SavePreferences(ctx context.Context, prefs *NotificationPreferences) error {
+	coll := r.db.Collection("notificationPreferences")
+
+	enabledTypes := make(map[string]bool)
+	for k, v := range prefs.EnabledTypes {
+		enabledTypes[string(k)] = v
+	}
+
+	prefsDoc := bson.M{
+		"userId": prefs.UserID,
+		"types":  enabledTypes,
+	}
+
+	res, err := coll.InsertOne(ctx, prefsDoc)
+	if err != nil {
+		return err
+	}
+
+	if oid, ok := res.InsertedID.(primitive.ObjectID); ok {
+		prefs.ID = oid
+	}
+
+	return nil
+}
+
+func (r *repository) UpdatePreferences(ctx context.Context, prefs *NotificationPreferences) error {
+	coll := r.db.Collection("notificationPreferences")
+
+	enabledTypes := make(map[string]bool)
+	for k, v := range prefs.EnabledTypes {
+		enabledTypes[string(k)] = v
+	}
+
+	update := bson.M{
+		"$set": bson.M{
+			"types": enabledTypes,
+		},
+	}
+
+	_, err := coll.UpdateOne(ctx, bson.M{"userId": prefs.UserID}, update)
+	return err
+}
+
+func (r *repository) FindPreferencesByUserID(ctx context.Context, userID uint) (*NotificationPreferences, error) {
+	coll := r.db.Collection("notificationPreferences")
+
+	var result struct {
+		ID     primitive.ObjectID `bson:"_id,omitempty"`
+		UserID uint               `bson:"userId"`
+		Types  map[string]bool    `bson:"types"`
+	}
+
+	err := coll.FindOne(ctx, bson.M{"userId": userID}).Decode(&result)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	enabledTypes := make(map[NotificationType]bool)
+	for k, v := range result.Types {
+		enabledTypes[NotificationType(k)] = v
+	}
+
+	return &NotificationPreferences{
+		ID:           result.ID,
+		UserID:       result.UserID,
+		EnabledTypes: enabledTypes,
+	}, nil
 }
