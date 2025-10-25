@@ -29,6 +29,9 @@ type MockNotificationRepo struct {
 
 func (r *MockNotificationRepo) Save(ctx context.Context, notification *internal.Notification) (*internal.Notification, error) {
 	args := r.Called(ctx, notification)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
 	return args.Get(0).(*internal.Notification), args.Error(1)
 }
 
@@ -47,6 +50,9 @@ func (r *MockNotificationRepo) MarkAsRead(ctx context.Context, id string) error 
 
 func (r *MockNotificationRepo) FindByID(ctx context.Context, id string) (*internal.Notification, error) {
 	args := r.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
 	return args.Get(0).(*internal.Notification), args.Error(1)
 }
 
