@@ -16,6 +16,7 @@ func (r *Route) Route(rg *gin.RouterGroup) {
 	rg.POST("/notification", r.handler.createNotification)
 	rg.GET("/notifications", r.handler.getUserNotifications)
 	rg.PUT("/notifications/:id/read", r.handler.markNotificationAsRead)
+	rg.GET("/notifications/unread-count", r.handler.getUnreadNotificationCount)
 
 }
 
@@ -118,4 +119,25 @@ func (h *Handler) markNotificationAsRead(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{"message": "notification marked as read"})
+}
+
+func (h *Handler) getUnreadNotificationCount(ctx *gin.Context) {
+	util.TEL.Push(ctx.Request.Context(), "get-unread-notifications-count")
+	defer util.TEL.Pop()
+
+	jwt, err := util.GetJwt(ctx)
+	if err != nil {
+		util.TEL.Error("failed fetching JWT", err)
+		AbortError(ctx, ErrUnauthenticated)
+		return
+	}
+
+	count, err := h.service.GetUnreadNotificationCount(util.TEL.Ctx(), jwt.ID)
+	if err != nil {
+		util.TEL.Error("failed fetching unread notification count", err)
+		AbortError(ctx, err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"unreadCount": count})
 }

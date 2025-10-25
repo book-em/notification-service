@@ -12,6 +12,7 @@ type Service interface {
 	CreateNotification(ctx context.Context, callerID uint, dto NewNotificationDTO) (*Notification, error)
 	GetUserNotifications(ctx context.Context, userID uint, limit int, offset int) ([]Notification, error)
 	MarkNotificationAsRead(ctx context.Context, callerID uint, notificationID string) error
+	GetUnreadNotificationCount(ctx context.Context, userID uint) (int64, error)
 }
 
 type service struct {
@@ -128,4 +129,25 @@ func (s *service) MarkNotificationAsRead(ctx context.Context, callerID uint, not
 
 	util.TEL.Info("notification marked as read", "notification_id", notificationID)
 	return nil
+}
+
+func (s *service) GetUnreadNotificationCount(ctx context.Context, userID uint) (int64, error) {
+	util.TEL.Info("fetching unread notifications for user", nil, "user_id", userID)
+
+	util.TEL.Debug("check if user exists", nil, "id", userID)
+	_, err := s.userClient.FindById(util.TEL.Ctx(), userID)
+	if err != nil {
+		util.TEL.Error("user does not exist", err, "id", userID)
+		return 0, ErrUnauthenticated
+	}
+
+	util.TEL.Push(ctx, "find-user-notifications-in-db")
+	defer util.TEL.Pop()
+
+	count, err := s.repo.CountUnreadNotifications(ctx, userID)
+	if err != nil {
+		util.TEL.Error("failed counting unread notifications", err, "user_id", userID)
+		return 0, err
+	}
+	return count, nil
 }
