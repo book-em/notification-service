@@ -74,9 +74,12 @@ func (r *MockNotificationRepo) SavePreferences(ctx context.Context, prefs *inter
 	return args.Error(0)
 }
 
-func (r *MockNotificationRepo) UpdatePreferences(ctx context.Context, prefs *internal.NotificationPreferences) error {
+func (r *MockNotificationRepo) UpdatePreferences(ctx context.Context, prefs *internal.NotificationPreferences) (*internal.NotificationPreferences, error) {
 	args := r.Called(ctx, prefs)
-	return args.Error(0)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*internal.NotificationPreferences), args.Error(1)
 }
 
 // ----------------------------------------------- Mock user client
