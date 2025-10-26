@@ -67,6 +67,21 @@ func (s *service) CreateNotification(ctx context.Context, callerID uint, dto Cre
 		return nil, ErrBadRequestCustom("notification type cannot be empty")
 	}
 
+	preference := &NotificationPreferences{}
+	util.TEL.Debug("fetch notification receiver preferences", nil, "user_id", dto.ReceiverID)
+
+	preference, err = s.GetUserNotificationPreferences(ctx, dto.ReceiverID)
+	if err != nil {
+		util.TEL.Error("failed fetching notification receiver preferences", err, "user_id", dto.ReceiverID)
+		return nil, err
+	}
+
+	enabled, exists := preference.EnabledTypes[NotificationType(dto.Type)]
+	if !exists || !enabled {
+		util.TEL.Info("notification type is disabled in user preferences, skipping creation", nil, "user_id", dto.ReceiverID, "type", dto.Type)
+		return nil, ErrNotFound("notification type is disabled in user preferences", dto.ReceiverID)
+	}
+
 	notification := &Notification{
 		ReceiverID:  receiver.Id,
 		Type:        dto.Type,
@@ -83,7 +98,7 @@ func (s *service) CreateNotification(ctx context.Context, callerID uint, dto Cre
 		return nil, err
 	}
 
-	util.TEL.Info("notification successfully created", "notification_id", saved.ID)
+	util.TEL.Info("notification successfully created", nil, "notification_id", saved.ID)
 	return saved, nil
 }
 
@@ -91,7 +106,7 @@ func (s *service) GetUserNotifications(ctx context.Context, userID uint, limit i
 	util.TEL.Info("fetching notifications for user", nil, "user_id", userID, "limit", limit, "offset", offset)
 
 	util.TEL.Debug("check if user exists", nil, "id", userID)
-	_, err := s.userClient.FindById(util.TEL.Ctx(), userID)
+	_, err := s.userClient.FindById(ctx, userID)
 	if err != nil {
 		util.TEL.Error("user does not exist", err, "id", userID)
 		return nil, ErrUnauthenticated
