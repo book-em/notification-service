@@ -171,8 +171,7 @@ func (h *Handler) getUserNotificationPreferences(ctx *gin.Context) {
 		return
 	}
 
-	//todo change to DTO
-	ctx.JSON(http.StatusOK, prefs)
+	ctx.JSON(http.StatusOK, NewNotificationPreferencesDTO(prefs))
 }
 
 func (h *Handler) updateNotificationPreferences(ctx *gin.Context) {
@@ -187,18 +186,18 @@ func (h *Handler) updateNotificationPreferences(ctx *gin.Context) {
 	}
 
 	var dto NotificationPreferencesDTO
-
 	if err := ctx.ShouldBindJSON(&dto); err != nil {
 		util.TEL.Error("failed binding JSON", err)
 		AbortError(ctx, ErrBadRequestCustom("invalid request body"))
 		return
 	}
 
-	if err := h.service.UpdateNotificationPreferences(util.TEL.Ctx(), jwt.ID, dto.EnabledTypes); err != nil {
+	prefs, err := h.service.UpdateNotificationPreferences(util.TEL.Ctx(), jwt.ID, dto.EnabledTypes)
+	if err != nil {
 		util.TEL.Error("failed updating notification preferences", err)
 		AbortError(ctx, err)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{"message": "notification preferences updated"})
+	ctx.JSON(http.StatusOK, NewNotificationPreferencesDTO(prefs))
 }

@@ -38,3 +38,10 @@ type NotificationPreferencesDTO struct {
 	UserID       uint                      `json:"userId"`
 	EnabledTypes map[NotificationType]bool `json:"enabledTypes"`
 }
+
+func NewNotificationPreferencesDTO(prefs *NotificationPreferences) NotificationPreferencesDTO {
+	return NotificationPreferencesDTO{
+		UserID:       prefs.UserID,
+		EnabledTypes: prefs.EnabledTypes,
+	}
+}

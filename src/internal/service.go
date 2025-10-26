@@ -14,7 +14,7 @@ type Service interface {
 	MarkNotificationAsRead(ctx context.Context, callerID uint, notificationID string) error
 	GetUnreadNotificationCount(ctx context.Context, userID uint) (int64, error)
 	GetUserNotificationPreferences(ctx context.Context, userID uint) (*NotificationPreferences, error)
-	UpdateNotificationPreferences(ctx context.Context, userID uint, enabledTypes map[NotificationType]bool) error
+	UpdateNotificationPreferences(ctx context.Context, userID uint, enabledTypes map[NotificationType]bool) (*NotificationPreferences, error)
 	CreateDefaultPreferences(ctx context.Context, userID uint) (*NotificationPreferences, error)
 }
 
@@ -235,39 +235,30 @@ func (s *service) GetUserNotificationPreferences(ctx context.Context, userID uin
 	return prefs, nil
 }
 
-func (s *service) UpdateNotificationPreferences(ctx context.Context, userID uint, enabledTypes map[NotificationType]bool) error {
+func (s *service) UpdateNotificationPreferences(ctx context.Context, userID uint, enabledTypes map[NotificationType]bool) (*NotificationPreferences, error) {
 	util.TEL.Info("updating notification preferences", nil, "user_id", userID)
 
 	util.TEL.Debug("check if user exists", nil, "id", userID)
 	user, err := s.userClient.FindById(util.TEL.Ctx(), userID)
 	if err != nil {
 		util.TEL.Error("user does not exist", err, "id", userID)
-		return ErrUnauthenticated
+		return nil, ErrUnauthenticated
 	}
 
 	prefs, err := s.repo.FindPreferencesByUserID(ctx, user.Id)
 	if err != nil {
 		util.TEL.Error("failed fetching preferences", err, "user_id", userID)
-		return err
+		return nil, err
 	}
 
-	if prefs == nil {
-		prefs = &NotificationPreferences{
-			UserID:       userID,
-			EnabledTypes: enabledTypes,
-		}
-		if err := s.repo.SavePreferences(ctx, prefs); err != nil {
-			util.TEL.Error("failed saving new preferences", err, "user_id", userID)
-			return err
-		}
-	} else {
-		prefs.EnabledTypes = enabledTypes
-		if err := s.repo.UpdatePreferences(ctx, prefs); err != nil {
-			util.TEL.Error("failed updating preferences", err, "user_id", userID)
-			return err
-		}
+	prefs.EnabledTypes = enabledTypes
+
+	updatedPrefs, err := s.repo.UpdatePreferences(ctx, prefs)
+	if err != nil {
+		util.TEL.Error("failed updating preferences", err, "user_id", userID)
+		return nil, err
 	}
 
 	util.TEL.Info("notification preferences updated", nil, "user_id", userID)
-	return nil
+	return updatedPrefs, nil
 }
