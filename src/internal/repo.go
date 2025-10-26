@@ -17,7 +17,7 @@ type Repository interface {
 	FindByID(ctx context.Context, id string) (*Notification, error)
 	CountUnreadNotifications(ctx context.Context, receiverID uint) (int64, error)
 	SavePreferences(ctx context.Context, prefs *NotificationPreferences) error
-	UpdatePreferences(ctx context.Context, prefs *NotificationPreferences) error
+	UpdatePreferences(ctx context.Context, prefs *NotificationPreferences) (*NotificationPreferences, error)
 	FindPreferencesByUserID(ctx context.Context, userID uint) (*NotificationPreferences, error)
 }
 
@@ -140,11 +140,10 @@ func (r *repository) SavePreferences(ctx context.Context, prefs *NotificationPre
 
 	return nil
 }
-
-func (r *repository) UpdatePreferences(ctx context.Context, prefs *NotificationPreferences) error {
+func (r *repository) UpdatePreferences(ctx context.Context, prefs *NotificationPreferences) (*NotificationPreferences, error) {
 	coll := r.db.Collection("notificationPreferences")
 
-	enabledTypes := make(map[string]bool)
+	enabledTypes := make(map[string]bool, len(prefs.EnabledTypes))
 	for k, v := range prefs.EnabledTypes {
 		enabledTypes[string(k)] = v
 	}
@@ -154,9 +153,32 @@ func (r *repository) UpdatePreferences(ctx context.Context, prefs *NotificationP
 			"types": enabledTypes,
 		},
 	}
+	opts := options.FindOneAndUpdate().SetReturnDocument(options.After).SetUpsert(true)
 
-	_, err := coll.UpdateOne(ctx, bson.M{"userId": prefs.UserID}, update)
-	return err
+	var result struct {
+		ID     primitive.ObjectID `bson:"_id,omitempty"`
+		UserID uint               `bson:"userId"`
+		Types  map[string]bool    `bson:"types"`
+	}
+
+	err := coll.FindOneAndUpdate(ctx, bson.M{"userId": prefs.UserID}, update, opts).Decode(&result)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	enabledTyped := make(map[NotificationType]bool, len(result.Types))
+	for k, v := range result.Types {
+		enabledTyped[NotificationType(k)] = v
+	}
+
+	return &NotificationPreferences{
+		ID:           result.ID,
+		UserID:       result.UserID,
+		EnabledTypes: enabledTyped,
+	}, nil
 }
 
 func (r *repository) FindPreferencesByUserID(ctx context.Context, userID uint) (*NotificationPreferences, error) {
@@ -176,7 +198,7 @@ func (r *repository) FindPreferencesByUserID(ctx context.Context, userID uint) (
 		return nil, err
 	}
 
-	enabledTypes := make(map[NotificationType]bool)
+	enabledTypes := make(map[NotificationType]bool, len(result.Types))
 	for k, v := range result.Types {
 		enabledTypes[NotificationType(k)] = v
 	}
