@@ -260,7 +260,7 @@ func (s *service) UpdateNotificationPreferences(ctx context.Context, userID uint
 		return nil, ErrUnauthenticated
 	}
 
-	prefs, err := s.repo.FindPreferencesByUserID(ctx, user.Id)
+	prefs, err := s.GetUserNotificationPreferences(ctx, user.Id)
 	if err != nil {
 		util.TEL.Error("failed fetching preferences", err, "user_id", userID)
 		return nil, err
