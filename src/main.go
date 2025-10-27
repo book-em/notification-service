@@ -81,7 +81,7 @@ func main() {
 	server.Use(util.TEL.GetLoggingMiddleware())
 	server.Use(otelgin.Middleware(os.Getenv("SERVICE_NAME")))
 	server.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:5173", "http://localhost"},
+		AllowOrigins:     []string{"http://localhost:5173", "http://localhost", "http://bookem.local"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Authorization", "Content-Type"},
 		ExposeHeaders:    []string{"Content-Length"},
