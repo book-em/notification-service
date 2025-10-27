@@ -113,6 +113,25 @@ func GetUnreadNotificationCount(jwt string) (*http.Response, error) {
 	return http.DefaultClient.Do(req)
 }
 
+// ------------------------ Notification Preferences ------------------------
+
+func GetNotificationPreferences(jwt string) (*http.Response, error) {
+	req, _ := http.NewRequest(http.MethodGet, URL_notification+"notification/preferences", nil)
+	req.Header.Add("Authorization", "Bearer "+jwt)
+	return http.DefaultClient.Do(req)
+}
+
+func UpdateNotificationPreferences(jwt string, enabledTypes map[internal.NotificationType]bool) (*http.Response, error) {
+	payload := map[string]map[internal.NotificationType]bool{"enabledTypes": enabledTypes}
+	jsonBytes, _ := json.Marshal(payload)
+
+	req, _ := http.NewRequest(http.MethodPut, URL_notification+"notification/preferences", bytes.NewBuffer(jsonBytes))
+	req.Header.Add("Authorization", "Bearer "+jwt)
+	req.Header.Add("Content-Type", "application/json")
+
+	return http.DefaultClient.Do(req)
+}
+
 // ------------------------ Response Parsers ------------------------
 
 func ResponseToNotification(resp *http.Response) internal.NotificationDTO {
